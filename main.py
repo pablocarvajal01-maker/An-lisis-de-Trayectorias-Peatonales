@@ -13,6 +13,7 @@ from stages import (
     ComparacionExperimentos,
     ExportacionResultados,
     PreparacionTrayectorias,
+    ValidacionExperimentos
 )
 
 
@@ -51,6 +52,7 @@ def main(argumentos: Sequence[str] | None = None) -> int:
     )
     etapas = [
         CargaExperimentos(),
+        ValidacionExperimentos(),
         PreparacionTrayectorias(),
         AnalisisIndividual(),
         AnalisisEspacial(),
