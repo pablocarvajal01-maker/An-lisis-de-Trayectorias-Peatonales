@@ -6,6 +6,7 @@ from .exportacion import ExportacionResultados
 from .individual import AnalisisIndividual
 from .carga import CargaExperimentos
 from .preparacion import PreparacionTrayectorias
+from .validacion import ValidacionExperimentos
 
 __all__ = [
     "AnalisisEspacial",
@@ -14,4 +15,5 @@ __all__ = [
     "ComparacionExperimentos",
     "ExportacionResultados",
     "PreparacionTrayectorias",
+    "ValidacionExperimentos",
 ]
