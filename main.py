@@ -7,43 +7,42 @@ from typing import Sequence
 from pipeline.contexto import ContextoPipeline
 from pipeline.pipeline import Pipeline
 from stages import (
-
+    AnalisisEspacial,
     AnalisisIndividual,
     CargaExperimentos,
-
+    ComparacionExperimentos,
     ExportacionResultados,
     PreparacionTrayectorias,
 )
 
 
 def crear_parser() -> argparse.ArgumentParser:
-    """Crea el analizador de argumentos de línea de comandos."""
     parser = argparse.ArgumentParser(
-        description="Pipeline inicial: Análisis de Trayectorias Peatonales."
+        description="Pipeline inicial: Análisis de Trayectorias Peatonales"
     )
     parser.add_argument(
         "--input",
         type=Path,
         default=Path("./data"),
-        help="Archivo o directorio de entrada (por defecto: ./data).",
+        help="Archivo o directorio de entrada (por defecto: ./data)",
     )
     parser.add_argument(
         "--output",
         type=Path,
         default=Path("./results"),
-        help="Directorio de salida (por defecto: ./results).",
+        help="Directorio de salida (por defecto: ./results)",
     )
     parser.add_argument(
         "--fps",
         type=float,
         default=None,
-        help="Frecuencia de muestreo del experimento, en cuadros por segundo.",
+        help="Frecuencia de muestreo del experimento, en cuadros por segundo (fps). Si no se especifica, se utilizará la frecuencia del experimento",
     )
     return parser
 
 
 def main(argumentos: Sequence[str] | None = None) -> int:
-    """Configura y ejecuta las etapas del pipeline."""
+    """Configura y ejecuta las etapas del pipeline"""
     configuracion = crear_parser().parse_args(argumentos)
     contexto = ContextoPipeline(
         ruta_entrada=configuracion.input,
@@ -54,7 +53,8 @@ def main(argumentos: Sequence[str] | None = None) -> int:
         CargaExperimentos(),
         PreparacionTrayectorias(),
         AnalisisIndividual(),
-        #...
+        AnalisisEspacial(),
+        ComparacionExperimentos(),
         ExportacionResultados(),
     ]
     pipeline = Pipeline(etapas)
