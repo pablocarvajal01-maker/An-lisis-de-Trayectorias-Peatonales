@@ -10,9 +10,11 @@ from pipeline.etapa import EtapaPipeline
 class AnalisisIndividual(EtapaPipeline[list[Experimento], list[Experimento]]):
     """Coordina el análisis de múltiples trayectorias y reúne sus indicadores."""
 
-    def __init__(self, umbral_detencion: float = 0.1) -> None:
+    def __init__(self, umbral_detencion: float = 0.1, duracion_minima: float = 0.5) -> None:
         # Velocidad en m/s bajo la cual se considera que el peatón está detenido
         self.umbral_detencion = umbral_detencion
+        # duracion minima en s pa contar una detencion; menos que eso es ruido del tracking o un paso lento
+        self.duracion_minima = duracion_minima
 
     def ejecutar(
         self,
@@ -34,6 +36,10 @@ class AnalisisIndividual(EtapaPipeline[list[Experimento], list[Experimento]]):
                 # Opcional: calcular el tiempo total detenido para mantener el dict[str, float]
                 tiempo_detenido = sum((fin - inicio) for inicio, fin in detenciones) / fps if fps else 0.0
                 indicadores["tiempo_detenido"] = tiempo_detenido
+                indicadores["n_detenciones"] = float(len(detenciones))
+                # porcentaje del tiempo observado, 0 si la trayectoria no tiene duracion
+                tiempo_total = indicadores["tiempo_total"]
+                indicadores["pct_tiempo_detenido"] = 100.0 * tiempo_detenido / tiempo_total if tiempo_total > 0 else 0.0
                 
                 # Guardamos en el diccionario usando el id_peaton como llave
                 resultados[tray.id_peaton] = indicadores
@@ -88,7 +94,8 @@ class AnalisisIndividual(EtapaPipeline[list[Experimento], list[Experimento]]):
             obs_act = trayectoria.observaciones[i]
             
             distancia = math.hypot(obs_act.x - obs_ant.x, obs_act.y - obs_ant.y)
-            velocidad = distancia / dt
+            # dt real entre las dos observaciones, puede haber frames que faltan
+            velocidad = distancia / (dt * (obs_act.frame - obs_ant.frame))
             
             if velocidad < self.umbral_detencion:
                 if not en_detencion:
@@ -97,10 +104,12 @@ class AnalisisIndividual(EtapaPipeline[list[Experimento], list[Experimento]]):
             else:
                 if en_detencion:
                     en_detencion = False
-                    detenciones.append((frame_inicio, obs_act.frame))
+                    # la detencion termina en la ultima observacion quieta, no en la que ya se mueve
+                    detenciones.append((frame_inicio, obs_ant.frame))
         
         # Si la trayectoria termina y el peatón seguía detenido
         if en_detencion:
             detenciones.append((frame_inicio, trayectoria.observaciones[-1].frame))
 
-        return detenciones
+        # descartar las que duran menos que la duracion minima
+        return [(ini, fin) for ini, fin in detenciones if (fin - ini) / fps >= self.duracion_minima]
