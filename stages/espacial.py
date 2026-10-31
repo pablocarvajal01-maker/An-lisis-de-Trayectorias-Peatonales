@@ -9,6 +9,7 @@ si una zona tiene velocidad menor que las demas, ahi hay un
 posible cuello de botella
 """
 
+
 import numpy as np
 
 from models.corredor import Corredor, Zona, sentido_de_avance
@@ -25,11 +26,9 @@ class AnalisisEspacial(EtapaPipeline[list[Experimento], list[Experimento]]):
         self,
         corredor: Corredor | None = None,
         num_zonas: int = 4,
-        fps_por_defecto: float = 25.0,
     ) -> None:
         self.corredor = corredor or Corredor()
         self.num_zonas = num_zonas
-        self.fps_por_defecto = fps_por_defecto
 
     def ejecutar(
         self,
@@ -37,9 +36,9 @@ class AnalisisEspacial(EtapaPipeline[list[Experimento], list[Experimento]]):
         contexto: ContextoPipeline,
     ) -> list[Experimento]:
         """calcula las metricas por zona de cada experimento"""
-        fps = contexto.fps if contexto.fps is not None else self.fps_por_defecto
-
         for exp in experimentos:
+            # cada archivo puede traer su fps, si no se usa el del contexto
+            fps = exp.fps_efectivo(contexto.fps)
             # el sentido cambia entre experimentos, asi que se detecta en cada uno
             sentido = sentido_de_avance(exp.trayectorias)
             zonas = self.corredor.dividir_en_zonas(self.num_zonas, sentido)
@@ -66,11 +65,11 @@ class AnalisisEspacial(EtapaPipeline[list[Experimento], list[Experimento]]):
         """junta los cruces de todos los peatones por una zona y los resume"""
         # filter: solo los que atraviesan la zona completa
         que_cruzan = filter(zona.es_cruzada_por, trayectorias)
-        # map: cada cruce -> (tiempo, velocidad) none si no alcanzo a medirse
+        # map: cada cruce -> (tiempo, velocidad), none si no alcanzo a medirse
         cruces = [c for c in map(lambda t: self._medir_cruce(zona, t, fps), que_cruzan) if c]
 
         if not cruces:
-            # nadie cruzo la zona: se devuelven ceros para no dividir por cero y explote ;p
+            # nadie cruzo la zona: se devuelven ceros para no dividir por cero
             return {
                 "zona": zona.numero, "y_entrada": zona.y_entrada, "y_salida": zona.y_salida,
                 "peatones": 0, "velocidad_media": 0.0, "velocidad_desviacion": 0.0,
@@ -88,7 +87,7 @@ class AnalisisEspacial(EtapaPipeline[list[Experimento], list[Experimento]]):
             "velocidad_desviacion": float(np.std(velocidades)),
             "tiempo_medio_cruce": float(np.mean(tiempos)),
             # la mediana no se deja arrastrar por los pocos que quedan atrapados
-            # mucho rato en taco 
+            # mucho rato en un taco (en el exp. 09 la media sube mucho por ellos)
             "tiempo_mediano_cruce": float(np.median(tiempos)),
         }
 
@@ -102,8 +101,8 @@ class AnalisisEspacial(EtapaPipeline[list[Experimento], list[Experimento]]):
         dentro = [obs for obs in trayectoria.observaciones if zona.contiene(obs)]
         if len(dentro) < 2:
             return None
-        # se reutiliza trayectoria con solo el pedazo de la zona, asi el
-        # tiempo se calcula con el mismo codigo del analisis individual jiji
+        # se reutiliza trayectoria con solo el pedazo dentro de la zona, asi el
+        # tiempo se calcula con el mismo codigo del analisis individual
         tramo = Trayectoria(trayectoria.id_peaton, dentro)
         tiempo = tramo.calcular_tiempo_total(fps)
         if tiempo <= 0:

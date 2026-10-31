@@ -14,10 +14,11 @@ class ComparacionExperimentos(EtapaPipeline[list[Experimento], ResultadoAnalisis
         contexto: ContextoPipeline,
     ) -> ResultadoAnalisis:
 
-        fps = contexto.fps
         comparacion = {}
 
         for exp in experimentos:
+            # cada archivo puede traer su fps, si no se usa el del contexto
+            fps = exp.fps_efectivo(contexto.fps)
             densidad, flujo = self._calcular_indicadores(exp, fps)
             
             exp.resultados_colectivos["densidad_media"] = densidad

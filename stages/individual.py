@@ -20,9 +20,9 @@ class AnalisisIndividual(EtapaPipeline[list[Experimento], list[Experimento]]):
         contexto: ContextoPipeline,
     ) -> list[Experimento]:
         """Analiza las trayectorias de cada experimento."""
-        fps = contexto.fps
-
         for exp in experimentos:
+            # cada archivo puede traer su fps, si no se usa el del contexto
+            fps = exp.fps_efectivo(contexto.fps)
             resultados = {}
             for tray in exp.trayectorias:
                 # 1. Calculamos los indicadores base
