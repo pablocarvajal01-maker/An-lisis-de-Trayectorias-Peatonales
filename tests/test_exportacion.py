@@ -32,6 +32,7 @@ def resultados_de_prueba():
             {"zona": 2, "peatones": 2, "velocidad_media": 0.7},
         ],
         "serie_densidad": [{"tiempo": 0.0, "densidad": 0.1}, {"tiempo": 1.0, "densidad": 0.3}],
+        "serie_flujo": [{"tiempo": 0.0, "cruces": 12, "flujo": 1.2}, {"tiempo": 10.0, "cruces": 8, "flujo": 0.8}],
     }
     comparacion = {"exp_a": {"total_peatones": 2, "densidad_media": 0.2, "flujo_medio": 1.5}}
     return ResultadoAnalisis(experimentos=[exp], comparacion=comparacion)
@@ -53,7 +54,7 @@ class TestExportacion(unittest.TestCase):
         nombres = {p.name for p in self.salida.iterdir()}
         self.assertEqual(
             nombres,
-            {"individual.csv", "zonas.csv", "densidad.csv", "resumen_experimentos.csv"},
+            {"individual.csv", "zonas.csv", "densidad.csv", "flujo.csv", "resumen_experimentos.csv"},
         )
 
     def test_individual_tiene_una_fila_por_peaton_ordenada(self):
@@ -76,6 +77,13 @@ class TestExportacion(unittest.TestCase):
         (fila,) = leer_csv(self.salida / "resumen_experimentos.csv")
         self.assertEqual(fila["experimento"], "exp_a")
         self.assertEqual(float(fila["flujo_medio"]), 1.5)
+
+    def test_flujo_trae_una_fila_por_ventana_de_tiempo(self):
+        self._exportar(resultados_de_prueba())
+        filas = leer_csv(self.salida / "flujo.csv")
+        self.assertEqual([f["cruces"] for f in filas], ["12", "8"])
+        self.assertEqual(float(filas[1]["flujo"]), 0.8)
+        self.assertEqual(filas[0]["experimento"], "exp_a")
 
     def test_un_experimento_sin_resultados_no_rompe(self):
         vacio = ResultadoAnalisis(experimentos=[Experimento("vacio")], comparacion={})
@@ -101,6 +109,7 @@ class TestPipelineCompleto(unittest.TestCase):
             self.assertEqual(codigo, 0)
             self.assertEqual(len(leer_csv(salida / "individual.csv")), 3)
             self.assertEqual(len(leer_csv(salida / "zonas.csv")), 4)
+            self.assertGreater(len(leer_csv(salida / "flujo.csv")), 0)
 
 
 if __name__ == "__main__":
