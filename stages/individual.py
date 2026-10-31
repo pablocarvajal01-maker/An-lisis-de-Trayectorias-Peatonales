@@ -10,8 +10,7 @@ from pipeline.etapa import EtapaPipeline
 class AnalisisIndividual(EtapaPipeline[list[Experimento], list[Experimento]]):
     """Coordina el análisis de múltiples trayectorias y reúne sus indicadores."""
 
-    def __init__(self, fps_por_defecto: float = 25.0, umbral_detencion: float = 0.1) -> None:
-        self.fps_por_defecto = fps_por_defecto
+    def __init__(self, umbral_detencion: float = 0.1) -> None:
         # Velocidad en m/s bajo la cual se considera que el peatón está detenido
         self.umbral_detencion = umbral_detencion
 
@@ -21,7 +20,7 @@ class AnalisisIndividual(EtapaPipeline[list[Experimento], list[Experimento]]):
         contexto: ContextoPipeline,
     ) -> list[Experimento]:
         """Analiza las trayectorias de cada experimento."""
-        fps = contexto.fps if contexto.fps is not None else self.fps_por_defecto
+        fps = contexto.fps
 
         for exp in experimentos:
             resultados = {}
@@ -47,10 +46,9 @@ class AnalisisIndividual(EtapaPipeline[list[Experimento], list[Experimento]]):
     def _calcular_indicadores(
         self,
         trayectoria: Trayectoria,
-        fps: float | None,
+        fps: float,
     ) -> dict[str, float]:
         """Calcula los indicadores individuales de una trayectoria."""
-        fps_efectivo = fps if fps is not None else self.fps_por_defecto
         x0, y0 = trayectoria.posicion_inicial
         x1, y1 = trayectoria.posicion_final
         
@@ -61,26 +59,25 @@ class AnalisisIndividual(EtapaPipeline[list[Experimento], list[Experimento]]):
             "pos_inicial_y": y0,
             "pos_final_x": x1,
             "pos_final_y": y1,
-            "tiempo_total": trayectoria.calcular_tiempo_total(fps_efectivo),
+            "tiempo_total": trayectoria.calcular_tiempo_total(fps),
             "distancia_total": trayectoria.calcular_distancia_total(),
             "desplazamiento": trayectoria.calcular_desplazamiento(),
-            "velocidad_media": trayectoria.calcular_velocidad_media(fps_efectivo),
-            "velocidad_maxima": trayectoria.calcular_velocidad_maxima(fps_efectivo),
+            "velocidad_media": trayectoria.calcular_velocidad_media(fps),
+            "velocidad_maxima": trayectoria.calcular_velocidad_maxima(fps),
             "eficiencia": eficiencia if eficiencia is not None else 0.0,
         }
 
     def _detectar_detenciones(
         self,
         trayectoria: Trayectoria,
-        fps: float | None,
+        fps: float,
     ) -> list[tuple[int, int]]:
         """Identifica intervalos de detención de una trayectoria."""
         detenciones = []
         if len(trayectoria.observaciones) < 2:
             return detenciones
         
-        fps_efectivo = fps if fps is not None else self.fps_por_defecto
-        dt = 1.0 / fps_efectivo
+        dt = 1.0 / fps
 
         en_detencion = False
         frame_inicio = -1

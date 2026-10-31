@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 from typing import Sequence
 
-from pipeline.contexto import ContextoPipeline
+from pipeline.contexto import ContextoPipeline, FPS_EXPERIMENTOS
 from pipeline.pipeline import Pipeline
 from stages import (
     AnalisisEspacial,
@@ -36,8 +36,8 @@ def crear_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--fps",
         type=float,
-        default=None,
-        help="Frecuencia de muestreo del experimento, en cuadros por segundo (fps). Si no se especifica, se utilizará la frecuencia del experimento",
+        default=FPS_EXPERIMENTOS,
+        help=f"Frecuencia de muestreo de los experimentos, en cuadros por segundo (por defecto: {FPS_EXPERIMENTOS:g})",
     )
     return parser
 
@@ -64,8 +64,7 @@ def main(argumentos: Sequence[str] | None = None) -> int:
     print("Configuración seleccionada:")
     print(f"  Entrada: {contexto.ruta_entrada}")
     print(f"  Salida: {contexto.ruta_salida}")
-    frecuencia = str(contexto.fps) if contexto.fps is not None else "no especificada"
-    print(f"  Frecuencia (fps): {frecuencia}")
+    print(f"  Frecuencia (fps): {contexto.fps:g}")
 
     return 0 if pipeline.ejecutar(contexto) else 1
 

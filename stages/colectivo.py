@@ -14,7 +14,7 @@ class ComparacionExperimentos(EtapaPipeline[list[Experimento], ResultadoAnalisis
         contexto: ContextoPipeline,
     ) -> ResultadoAnalisis:
 
-        fps = contexto.fps if contexto.fps is not None else 25.0
+        fps = contexto.fps
         comparacion = {}
 
         for exp in experimentos:

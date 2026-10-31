@@ -1,12 +1,11 @@
 """metricas locales por zona del corredor
 
-idea: se corta el corredor en tramos a lo largo de y (la direccion en que
-camina la gente) y para cada tramo se mide:
+se corta el corredor en tramos y para cada tramo se mide:
   - cuantos peatones lo cruzan completo
-  - su velocidad media de avance dentro del tramo [m/s]
-  - cuanto tardan en cruzarlo [s]
+  - su velocidad media de avance dentro del tramo rn m/s
+  - cuanto tardan en cruzarlo en s
 
-si una zona tiene velocidad claramente menor que las demas, ahi hay un
+si una zona tiene velocidad menor que las demas, ahi hay un
 posible cuello de botella
 """
 
@@ -67,11 +66,11 @@ class AnalisisEspacial(EtapaPipeline[list[Experimento], list[Experimento]]):
         """junta los cruces de todos los peatones por una zona y los resume"""
         # filter: solo los que atraviesan la zona completa
         que_cruzan = filter(zona.es_cruzada_por, trayectorias)
-        # map: cada cruce -> (tiempo, velocidad), none si no alcanzo a medirse
+        # map: cada cruce -> (tiempo, velocidad) none si no alcanzo a medirse
         cruces = [c for c in map(lambda t: self._medir_cruce(zona, t, fps), que_cruzan) if c]
 
         if not cruces:
-            # nadie cruzo la zona: se devuelven ceros para no dividir por cero
+            # nadie cruzo la zona: se devuelven ceros para no dividir por cero y explote ;p
             return {
                 "zona": zona.numero, "y_entrada": zona.y_entrada, "y_salida": zona.y_salida,
                 "peatones": 0, "velocidad_media": 0.0, "velocidad_desviacion": 0.0,
@@ -89,7 +88,7 @@ class AnalisisEspacial(EtapaPipeline[list[Experimento], list[Experimento]]):
             "velocidad_desviacion": float(np.std(velocidades)),
             "tiempo_medio_cruce": float(np.mean(tiempos)),
             # la mediana no se deja arrastrar por los pocos que quedan atrapados
-            # mucho rato en un taco (en el exp. 09 la media sube mucho por ellos)
+            # mucho rato en taco 
             "tiempo_mediano_cruce": float(np.median(tiempos)),
         }
 
@@ -103,15 +102,15 @@ class AnalisisEspacial(EtapaPipeline[list[Experimento], list[Experimento]]):
         dentro = [obs for obs in trayectoria.observaciones if zona.contiene(obs)]
         if len(dentro) < 2:
             return None
-        # se reutiliza trayectoria con solo el pedazo dentro de la zona, asi el
-        # tiempo se calcula con el mismo codigo del analisis individual
+        # se reutiliza trayectoria con solo el pedazo de la zona, asi el
+        # tiempo se calcula con el mismo codigo del analisis individual jiji
         tramo = Trayectoria(trayectoria.id_peaton, dentro)
         tiempo = tramo.calcular_tiempo_total(fps)
         if tiempo <= 0:
             return None
-        # velocidad en la direccion de avance: cuanto avanzo en y / tiempo.
-        # no se usa la distancia recorrida porque, cuando alguien esta casi
-        # detenido, el ruido del tracking (la cabeza "tiembla" unos mm por frame)
-        # suma metros falsos y la velocidad saldria inflada
+        # velocidad en la direccion de avance: cuanto avanzo en y partido en tiempo
+        # no se usa la distancia recorrida por el ruido del tracking 
+        # la cabeza le "tiembla" unos mm por frame enveces y eso
+        # suma metros falsos y la velocidad saldria inflada;p
         avance = abs(dentro[-1].y - dentro[0].y)
         return tiempo, avance / tiempo
