@@ -20,6 +20,9 @@ _COLUMNA_CON_UNIDAD = re.compile(r"<(\w+)>(?:\s*\[in\s+(\w+)\])?")
 # el 02 viene en otro formato, 5 columnas separadas por tab, id frame x y z, sin flag y sin unidad, se asume m
 # trae el fps en la cabecera, ej "# framerate: 25.00" si no lo trae se deberia usar el que viene por --fps
 COLUMNAS_SIMPLES = 5
+# ademas el 02 trae el corredor girado lptm, el largo va en x y el ancho en y de 0 a 5 m
+# se pasa al marco de los otros, ancho en x centrado en 0 y largo en y
+ANCHO_CORREDOR = 5.0
 _CABECERA_SIMPLE = re.compile(r"#\s*PersID\s+Frame\s+X\s+Y\s+Z", re.IGNORECASE)
 _FRAMERATE = re.compile(r"#\s*framerate\s*:\s*([0-9.]+)", re.IGNORECASE)
 
@@ -150,11 +153,13 @@ class CargaExperimentos(EtapaPipeline[None, list[Experimento]]):
     def _parsear_linea_simple(self, campos: list[str], escalas: dict[str, float]) -> Observacion | None:
         """Linea del formato id frame x y z, el flag queda en 1 porque no viene"""
         try:
+            largo = float(campos[2]) * escalas["x"]
+            ancho = float(campos[3]) * escalas["y"]
             return Observacion(
                 id_peaton=int(campos[0]),
                 frame=int(campos[1]),
-                x=float(campos[2]) * escalas["x"],
-                y=float(campos[3]) * escalas["y"],
+                x=ancho - ANCHO_CORREDOR / 2,
+                y=largo,
                 z=float(campos[4]) * escalas["z"],
             )
         except ValueError:

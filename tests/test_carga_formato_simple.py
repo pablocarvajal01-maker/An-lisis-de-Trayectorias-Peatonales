@@ -1,4 +1,4 @@
-"""Pruebas de la carga del formato del 02 y del fps que declara comillas el archivo"""
+"""Pruebas de la carga del formato del 02 y del fps que declara el archivo"""
 
 import contextlib
 import io
@@ -34,8 +34,10 @@ class TestFormatoSimple(unittest.TestCase):
         self.assertEqual(len(exp.observaciones), 2)
         o = exp.observaciones[0]
         self.assertEqual((o.id_peaton, o.frame, o.flag), (1, 85, 1))
-        self.assertAlmostEqual(o.x, 4.6057)
-        self.assertAlmostEqual(o.y, 1.7769)
+        # el corredor del 02 viene girado, se pasa al marco de los otros archivos
+        # el largo queda en y y el ancho queda en x centrado en 0
+        self.assertAlmostEqual(o.x, 1.7769 - 2.5)
+        self.assertAlmostEqual(o.y, 4.6057)
 
     def test_lee_el_framerate_de_la_cabecera(self):
         exp = self._cargar("b.txt", CABECERA_02 + ["1\t85\t4.6\t1.7\t1.7"])
