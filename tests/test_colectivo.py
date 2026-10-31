@@ -62,5 +62,33 @@ class TestSerieDensidad(unittest.TestCase):
             self.assertAlmostEqual(segundo["velocidad_media"], 1.0)
 
 
+
+class TestFlujo(unittest.TestCase):
+    def test_instante_de_cruce_interpolado(self):
+        # va de y = -0.05 (frame 0) a y = 0.05 (frame 1): toca y = 0 a mitad de camino
+        tray = Trayectoria(1, [Observacion(1, 0, 0.0, -0.05, 1.7), Observacion(1, 1, 0.0, 0.05, 1.7)])
+        exp = Experimento("prueba", trayectorias=[tray])
+        self.assertAlmostEqual(ComparacionExperimentos()._calcular_cruces(exp, FPS)[0], 0.05)
+
+    def test_un_peaton_que_tiembla_en_la_linea_cuenta_una_vez(self):
+        ys = [-0.1, 0.01, -0.01, 0.01, 0.1]
+        tray = Trayectoria(1, [Observacion(1, f, 0.0, y, 1.7) for f, y in enumerate(ys)])
+        exp = Experimento("prueba", trayectorias=[tray])
+        self.assertEqual(len(ComparacionExperimentos()._calcular_cruces(exp, FPS)), 1)
+
+    def test_flujo_constante(self):
+        # 11 peatones a 1 m/s, uno cada 2 s: cruzan y = 0 cada 2 s -> 0.5 p/s
+        trayectorias = [peaton_caminando(i, -1.0, 21) for i in range(11)]
+        for i, tray in enumerate(trayectorias):
+            tray.observaciones = [
+                Observacion(i, o.frame + 20 * i, o.x, o.y, o.z) for o in tray.observaciones
+            ]
+        exp = Experimento("prueba", trayectorias=trayectorias)
+        ComparacionExperimentos().ejecutar([exp], ContextoPipeline(None, None, FPS))
+        self.assertAlmostEqual(exp.resultados_colectivos["flujo_medio"], 0.5)
+        # flujo especifico = 0.5 p/s / 5 m de ancho
+        self.assertAlmostEqual(exp.resultados_colectivos["flujo_especifico"], 0.1)
+
+
 if __name__ == "__main__":
     unittest.main()
