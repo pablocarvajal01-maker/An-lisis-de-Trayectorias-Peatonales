@@ -32,6 +32,7 @@ class ExportacionResultados(EtapaPipeline[ResultadoAnalisis, None]):
             "individual.csv": self._filas_individuales(experimentos),
             "zonas.csv": self._filas_zonas(experimentos),
             "densidad.csv": self._filas_densidad(experimentos),
+            "flujo.csv": self._filas_flujo(experimentos),
             "resumen_experimentos.csv": self._filas_resumen(resultados),
         }
         for nombre, filas in tablas.items():
@@ -69,6 +70,15 @@ class ExportacionResultados(EtapaPipeline[ResultadoAnalisis, None]):
             {"experimento": exp.nombre, **muestra}
             for exp in experimentos
             for muestra in exp.resultados_colectivos.get("serie_densidad", [])
+        ]
+
+    @staticmethod
+    def _filas_flujo(experimentos: list[Experimento]) -> list[Fila]:
+        """el flujo por la linea de medicion en ventanas de tiempo de cada experimento"""
+        return [
+            {"experimento": exp.nombre, **muestra}
+            for exp in experimentos
+            for muestra in exp.resultados_colectivos.get("serie_flujo", [])
         ]
 
     @staticmethod

@@ -80,6 +80,9 @@ class Corredor:
     # todo el ancho (5 m) por 4 m de largo = 20 m2
     y_medicion_min: float = -2.0
     y_medicion_max: float = 2.0
+    # linea transversal para el flujo: se cuenta cuantos peatones la cruzan.
+    # va al centro del area de medicion, asi densidad y flujo miden el mismo lugar
+    y_linea_flujo: float = 0.0
 
     @property
     def ancho(self) -> float:
