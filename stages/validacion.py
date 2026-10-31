@@ -62,10 +62,12 @@ class ValidacionExperimentos(EtapaPipeline[list[Experimento], list[Experimento]]
                 observaciones_filtradas.extend(obs_unicas_frame)
 
         # Retornar un nuevo objeto Experimento con las observaciones validadas
+                # Retornar un nuevo objeto Experimento con las observaciones validadas
         return Experimento(
             nombre=experimento.nombre,
             observaciones=observaciones_filtradas,
             trayectorias=experimento.trayectorias,
             resultados_individuales=experimento.resultados_individuales,
             resultados_colectivos=experimento.resultados_colectivos,
+            fps=experimento.fps,
         )

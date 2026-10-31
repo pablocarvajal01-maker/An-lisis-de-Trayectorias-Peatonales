@@ -8,15 +8,20 @@ from models.observacion import Observacion
 from pipeline.contexto import ContextoPipeline
 from pipeline.etapa import EtapaPipeline
 
-# Orden de columnas de los archivos viene escrito en la primera línea de cada archivo
 COLUMNAS_ESPERADAS = ("number", "frame", "x", "y", "z", "rot", "id", "flag")
 
-# Factor pa' pasar cada unidad a metros, peeero los archivos 01-06 vienen en m
+# Factor pa pasar cada unidad a metros, peeero los archivos 01-06 vienen en m
 # y los 07-09 en cm, así que NO se puede asumir una sola unidad pa todos
 UNIDAD_A_METROS = {"m": 1.0, "cm": 0.01, "mm": 0.001}
 
 # Agarra cada "<columna>" con su "[in unidad]" si lo trae.
 _COLUMNA_CON_UNIDAD = re.compile(r"<(\w+)>(?:\s*\[in\s+(\w+)\])?")
+
+# el 02 viene en otro formato, 5 columnas separadas por tab, id frame x y z, sin flag y sin unidad, se asume m
+# trae el fps en la cabecera, ej "# framerate: 25.00" si no lo trae se deberia usar el que viene por --fps
+COLUMNAS_SIMPLES = 5
+_CABECERA_SIMPLE = re.compile(r"#\s*PersID\s+Frame\s+X\s+Y\s+Z", re.IGNORECASE)
+_FRAMERATE = re.compile(r"#\s*framerate\s*:\s*([0-9.]+)", re.IGNORECASE)
 
 
 class CargaExperimentos(EtapaPipeline[None, list[Experimento]]):
@@ -31,6 +36,8 @@ class CargaExperimentos(EtapaPipeline[None, list[Experimento]]):
         experimentos = self._cargar_experimentos(contexto.ruta_entrada)
         for experimento in experimentos:
             print(f"  {experimento.nombre}: {len(experimento.observaciones)} observaciones")
+            if experimento.fps is not None:
+                print(f"    el archivo declara {experimento.fps:g} fps")
         return experimentos
 
     def _cargar_experimentos(self, ruta_entrada: Path) -> list[Experimento]:
@@ -55,7 +62,7 @@ class CargaExperimentos(EtapaPipeline[None, list[Experimento]]):
         if descartadas:
             # no llegamos y las botamos, avisamos cuántas fueron
             print(f"  Ojo: {ruta.name} traía {descartadas} líneas malformadas y las salté.")
-        return Experimento(nombre=ruta.stem, observaciones=observaciones)
+        return Experimento(nombre=ruta.stem, observaciones=observaciones, fps=self._leer_framerate(ruta))
 
     def _leer_cabecera(self, ruta: Path) -> dict[str, float]:
         """Lee la primera línea y devuelve el factor a metros de x, y, z."""
@@ -65,6 +72,8 @@ class CargaExperimentos(EtapaPipeline[None, list[Experimento]]):
 
         columnas = _COLUMNA_CON_UNIDAD.findall(primera_linea)
         nombres = tuple(nombre for nombre, _ in columnas)
+        if not columnas and self._tiene_cabecera_simple(ruta):
+            return {"x": 1.0, "y": 1.0, "z": 1.0}
         if nombres != COLUMNAS_ESPERADAS:
             raise ValueError(
                 f"{ruta.name}: las columnas {nombres} no son las esperadas {COLUMNAS_ESPERADAS}"
@@ -77,6 +86,27 @@ class CargaExperimentos(EtapaPipeline[None, list[Experimento]]):
                     raise ValueError(f"{ruta.name}: unidad desconocida '{unidad}' en la columna {nombre}")
                 escalas[nombre] = UNIDAD_A_METROS[unidad]
         return escalas
+
+    def _lineas_de_cabecera(self, ruta: Path) -> list[str]:
+        """Las lineas del principio hasta la primera con datos"""
+        cabecera = []
+        with open(ruta, encoding="utf-8", newline=None) as archivo:
+            for linea in archivo:
+                if linea.strip() and not linea.startswith("#"):
+                    break
+                cabecera.append(linea)
+        return cabecera
+
+    def _tiene_cabecera_simple(self, ruta: Path) -> bool:
+        return any(_CABECERA_SIMPLE.match(linea) for linea in self._lineas_de_cabecera(ruta))
+
+    def _leer_framerate(self, ruta: Path) -> float | None:
+        """fps que declara el archivo en la cabecera, None si no dice"""
+        for linea in self._lineas_de_cabecera(ruta):
+            encontrado = _FRAMERATE.match(linea)
+            if encontrado:
+                return float(encontrado.group(1))
+        return None
 
     def _leer_observaciones(
         self,
@@ -100,6 +130,8 @@ class CargaExperimentos(EtapaPipeline[None, list[Experimento]]):
     def _parsear_linea(self, linea: str, escalas: dict[str, float]) -> Observacion | None:
         """Convierte una linea en Observacion; None si viene mala"""
         campos = linea.split()
+        if len(campos) == COLUMNAS_SIMPLES:
+            return self._parsear_linea_simple(campos, escalas)
         if len(campos) != len(COLUMNAS_ESPERADAS):
             return None
         try:
@@ -111,6 +143,19 @@ class CargaExperimentos(EtapaPipeline[None, list[Experimento]]):
                 y=float(campos[3]) * escalas["y"],
                 z=float(campos[4]) * escalas["z"],
                 flag=int(campos[7]),
+            )
+        except ValueError:
+            return None
+
+    def _parsear_linea_simple(self, campos: list[str], escalas: dict[str, float]) -> Observacion | None:
+        """Linea del formato id frame x y z, el flag queda en 1 porque no viene"""
+        try:
+            return Observacion(
+                id_peaton=int(campos[0]),
+                frame=int(campos[1]),
+                x=float(campos[2]) * escalas["x"],
+                y=float(campos[3]) * escalas["y"],
+                z=float(campos[4]) * escalas["z"],
             )
         except ValueError:
             return None
