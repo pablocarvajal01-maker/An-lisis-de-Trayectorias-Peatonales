@@ -76,10 +76,26 @@ class Corredor:
     x_max: float = 2.5
     y_min: float = -4.0
     y_max: float = 4.0
+    # area de medicion para la densidad: rectangulo al centro del corredor,
+    # todo el ancho (5 m) por 4 m de largo = 20 m2
+    y_medicion_min: float = -2.0
+    y_medicion_max: float = 2.0
 
     @property
     def ancho(self) -> float:
         return self.x_max - self.x_min
+
+    @property
+    def area_medicion(self) -> float:
+        """area del rectangulo de medicion [m2]"""
+        return self.ancho * (self.y_medicion_max - self.y_medicion_min)
+
+    def en_area_medicion(self, observacion: Observacion) -> bool:
+        """true si la observacion cae dentro del rectangulo de medicion"""
+        return (
+            self.x_min <= observacion.x <= self.x_max
+            and self.y_medicion_min <= observacion.y < self.y_medicion_max
+        )
 
     def dividir_en_zonas(self, cantidad: int, sentido: int = 1) -> list[Zona]:
         """divide el tramo en cantidad zonas iguales, numeradas desde la entrada
