@@ -90,5 +90,30 @@ class TestFlujo(unittest.TestCase):
         self.assertAlmostEqual(exp.resultados_colectivos["flujo_especifico"], 0.1)
 
 
+
+class TestComparacion(unittest.TestCase):
+    def test_meseta_sin_llenado_ni_vaciado(self):
+        # 0 -> sube -> meseta de 2.0 -> baja -> 0
+        densidades = [0.0, 0.5, 2.0, 2.0, 2.2, 1.8, 2.0, 0.4, 0.0]
+        serie = [{"densidad": d, "velocidad_media": 0.5} for d in densidades]
+        densidad, velocidad = ComparacionExperimentos._resumir_estado_estacionario(serie)
+        self.assertEqual([s["estacionario"] for s in serie], [0, 0, 1, 1, 1, 1, 1, 0, 0])
+        self.assertAlmostEqual(densidad, 2.0)
+        self.assertAlmostEqual(velocidad, 0.5)
+
+    def test_promedios_individuales(self):
+        exp = Experimento("prueba", trayectorias=[peaton_quieto(1, 0.0, 0.0, 20)])
+        exp.resultados_individuales = {
+            1: {"velocidad_media": 1.0, "distancia_total": 10.0},
+            2: {"velocidad_media": 0.5, "distancia_total": 14.0},
+        }
+        resultado = ComparacionExperimentos().ejecutar([exp], ContextoPipeline(None, None, FPS))
+        fila = resultado.comparacion["prueba"]
+        self.assertAlmostEqual(fila["velocidad_media"], 0.75)
+        self.assertAlmostEqual(fila["distancia_media"], 12.0)
+        # si ningun peaton tiene el indicador, da 0 en vez de caerse
+        self.assertAlmostEqual(fila["tiempo_medio"], 0.0)
+
+
 if __name__ == "__main__":
     unittest.main()

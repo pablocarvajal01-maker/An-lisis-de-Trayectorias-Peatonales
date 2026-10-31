@@ -30,6 +30,8 @@ class ComparacionExperimentos(EtapaPipeline[list[Experimento], ResultadoAnalisis
             # flujo especifico: flujo por metro de ancho, sirve para comparar
             # con corredores de otro ancho y con la relacion j = densidad * velocidad
             flujo_especifico = flujo / self.corredor.ancho
+            # meseta de la serie: el tramo sin llenado ni vaciado del corredor
+            densidad_estacionaria, velocidad_estacionaria = self._resumir_estado_estacionario(serie)
             
             exp.resultados_colectivos["densidad_media"] = densidad
             exp.resultados_colectivos["densidad_maxima"] = densidad_maxima
@@ -45,8 +47,22 @@ class ComparacionExperimentos(EtapaPipeline[list[Experimento], ResultadoAnalisis
                 "densidad_maxima": densidad_maxima,
                 "flujo_medio": flujo,
                 "flujo_especifico": flujo_especifico,
+                "densidad_estacionaria": densidad_estacionaria,
+                "velocidad_estacionaria": velocidad_estacionaria,
+                # promedios de los indicadores individuales de todos los peatones
+                "velocidad_media": self._promedio_individual(exp, "velocidad_media"),
+                "distancia_media": self._promedio_individual(exp, "distancia_total"),
+                "tiempo_medio": self._promedio_individual(exp, "tiempo_total"),
+                "eficiencia_media": self._promedio_individual(exp, "eficiencia"),
+                "pct_tiempo_detenido_medio": self._promedio_individual(exp, "pct_tiempo_detenido"),
             }
             print(f"  {exp.nombre}: análisis colectivo (Densidad: {densidad:.3f} p/m², máx {densidad_maxima:.3f} p/m², Flujo: {flujo:.3f} p/s, {flujo_especifico:.3f} p/(m·s))")
+            c = comparacion[exp.nombre]
+            print(
+                f"    estacionario: {densidad_estacionaria:.2f} p/m² a {velocidad_estacionaria:.2f} m/s | "
+                f"por peaton: v = {c['velocidad_media']:.2f} m/s, {c['distancia_media']:.1f} m, "
+                f"{c['tiempo_medio']:.1f} s, detenido {c['pct_tiempo_detenido_medio']:.1f} %"
+            )
 
         return ResultadoAnalisis(experimentos=experimentos, comparacion=comparacion)
 
@@ -172,3 +188,34 @@ class ComparacionExperimentos(EtapaPipeline[list[Experimento], ResultadoAnalisis
             {"tiempo": inicio + i * ventana, "cruces": conteo.get(i, 0), "flujo": conteo.get(i, 0) / ventana}
             for i in range(max(conteo) + 1)
         ]
+
+    @staticmethod
+    def _resumir_estado_estacionario(
+        serie: list[dict[str, float]],
+        fraccion: float = 0.8
+    ) -> tuple[float, float]:
+        """marca los segundos de la meseta y devuelve su densidad y velocidad medias
+
+        la meseta va desde el primer hasta el ultimo segundo en que la densidad
+        llega al 80 % de la densidad tipica: el valor del medio (mediana) de los
+        segundos con gente, que no se deja mover por los picos ni por los ratos vacios
+        """
+        con_gente = sorted(s["densidad"] for s in serie if s["densidad"] > 0)
+        if not con_gente:
+            return 0.0, 0.0
+        umbral = fraccion * con_gente[len(con_gente) // 2]
+        sobre_umbral = [i for i, s in enumerate(serie) if s["densidad"] >= umbral]
+        inicio, fin = sobre_umbral[0], sobre_umbral[-1]
+        for i, s in enumerate(serie):
+            # 1 = meseta, 0 = llenado o vaciado; queda en densidad.csv para graficar
+            s["estacionario"] = 1 if inicio <= i <= fin else 0
+        meseta = serie[inicio:fin + 1]
+        densidad = sum(s["densidad"] for s in meseta) / len(meseta)
+        velocidad = sum(s["velocidad_media"] for s in meseta) / len(meseta)
+        return densidad, velocidad
+
+    @staticmethod
+    def _promedio_individual(experimento: Experimento, clave: str) -> float:
+        """promedio de un indicador individual entre todos los peatones del experimento"""
+        valores = [ind[clave] for ind in experimento.resultados_individuales.values() if clave in ind]
+        return sum(valores) / len(valores) if valores else 0.0
